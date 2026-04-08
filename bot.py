@@ -1,7 +1,6 @@
 import telebot
 import requests
 import os
-import json
 from flask import Flask
 from threading import Thread
 from telebot import types
@@ -30,10 +29,11 @@ WEB_SMARTERS = "http://webtv.iptvsmarters.com/"
 bot = telebot.TeleBot(TOKEN_TELEGRAM)
 user_data = {}
 
-# Servidor Flask para o Render
+# Servidor Flask para o Render não derrubar o bot
 app = Flask(__name__)
 @app.route('/')
-def home(): return "Visionus Live"
+def home():
+    return "Visionus Bot está Online!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -58,8 +58,8 @@ def send_welcome(message):
     nome = message.from_user.first_name
     msg = (
         f"Olá {nome}! 👋\n\n"
-        "Bem-vindo ao canal oficial da *Visionus Premium*.\n"
-        "Escolha uma opção no menu abaixo para começar:"
+        "Bem-vindo à *Visionus Premium*.\n"
+        "Selecione uma opção abaixo no menu para continuar:"
     )
     bot.send_message(message.chat.id, msg, parse_mode="Markdown", reply_markup=menu_principal())
 
@@ -73,11 +73,11 @@ def handle_menu(message):
 
     elif message.text == '💳 Planos e Valores':
         texto = (
-            "💎 *PLANOS VISIONUS PREMIUM*\n\n"
+            "💎 *TABELA DE PREÇOS*\n\n"
             "🥉 *MENSAL:* R$ 35,00\n"
             "🥈 *TRIMESTRAL:* R$ 85,00\n"
             "🥇 *SEMESTRAL:* R$ 150,00\n\n"
-            "✅ Grade completa + Cinema"
+            "Chame o suporte para assinar!"
         )
         bot.send_message(cid, texto, parse_mode="Markdown")
 
@@ -90,16 +90,16 @@ def handle_menu(message):
 
     elif message.text == '💻 Assistir no Navegador':
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🌐 Web Player 1", url=WEB_BLINK))
-        markup.add(types.InlineKeyboardButton("🌐 Web Player 2", url=WEB_SMARTERS))
-        bot.send_message(cid, "Acesse pelo seu PC ou Notebook:", reply_markup=markup)
+        markup.add(types.InlineKeyboardButton("🌐 Player 1", url=WEB_BLINK))
+        markup.add(types.InlineKeyboardButton("🌐 Player 2", url=WEB_SMARTERS))
+        bot.send_message(cid, "Acesse pelo seu Computador:", reply_markup=markup)
 
     elif message.text == '📖 Como Instalar?':
         msg = (
             "📖 *GUIA DE INSTALAÇÃO*\n\n"
             "1. Baixe o App na opção *Baixar Aplicativos*.\n"
-            "2. Instale no seu Android.\n"
-            "3. Use os dados gerados no teste.\n"
+            "2. Instale no seu aparelho.\n"
+            "3. Use os dados gerados no seu teste.\n"
             "4. Servidor/DNS: `http://cs.tvapp.shop:80`"
         )
         bot.send_message(cid, msg, parse_mode="Markdown")
@@ -107,34 +107,42 @@ def handle_menu(message):
     elif message.text == '👨‍💻 Falar com Suporte':
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Chamar no WhatsApp 🟢", url=LINK_WHATSAPP))
-        bot.send_message(cid, "Precisa de ajuda? Clique abaixo:", reply_markup=markup)
+        bot.send_message(cid, "Clique no botão abaixo para suporte:", reply_markup=markup)
 
+    # Lógica de Cadastro de Teste
     elif cid in user_data:
         if user_data[cid]['step'] == 'nome':
             user_data[cid]['name'] = message.text
             user_data[cid]['step'] = 'email'
             bot.send_message(cid, "Agora, digite seu *E-MAIL*:")
+        
         elif user_data[cid]['step'] == 'email':
             email = message.text
             nome = user_data[cid]['name']
-            bot.send_message(cid, "⏳ *A gerar o seu teste...*")
+            bot.send_message(cid, "⏳ *A gerar o seu acesso...*")
             
             payload = {"userId": USER_ID, "packageId": PACKAGE_ID, "name": nome, "email": email}
             headers = {
                 "Authorization": f"Bearer {BEARER_TOKEN}",
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0"
+                "Content-Type": "application/json"
             }
             try:
                 r = requests.post(API_URL, json=payload, headers=headers, timeout=25)
                 d = r.json()
                 info = d.get("data", d)
-                res = f"✅ *TESTE LIBERADO!*\n\n👤 Usuário: `{info.get('username')}`\n🔑 Senha: `{info.get('password')}`\n🌐 DNS: `http://cs.tvapp.shop:80`"
+                res = (
+                    "✅ *ACESSO LIBERADO!*\n\n"
+                    f"👤 Usuário: `{info.get('username')}`\n"
+                    f"🔑 Senha: `{info.get('password')}`\n"
+                    "🌐 DNS: `http://cs.tvapp.shop:80`"
+                )
                 bot.send_message(cid, res, parse_mode="Markdown")
             except:
-                bot.send_message(cid, "⚠️ Falha ao comunicar com o servidor IPTV.")
+                bot.send_message(cid, "⚠️ Erro ao conectar com o painel.")
             del user_data[cid]
 
 if __name__ == "__main__":
+    # Inicia o servidor web
     Thread(target=run_web).start()
+    # Inicia o bot
     bot.infinity_polling(skip_pending=True)
